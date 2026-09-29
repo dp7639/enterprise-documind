@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocuMind — Enterprise RAG Platform</title>
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    function App() {
+      const [file, setFile] = useState(null);
+      const [uploadStatus, setUploadStatus] = useState("");
+      const [prompt, setPrompt] = useState("");
+      const [result, setResult] = useState(null);
+      const [loading, setLoading] = useState(false);
+
+      const API_BASE = "http://127.0.0.1:8000";
+
+      const handleUpload = async (e) => {
+        e.preventDefault();
+        if (!file) return alert("Select a PDF file first");
+        const formData = new FormData();
+        formData.append("file", file);
+
+        setUploadStatus("Uploading & indexing chunks...");
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setUploadStatus(`Indexed ${data.chunks_indexed} chunks from ${data.filename}!`);
+          } else {
+            setUploadStatus(data.detail || "Upload error");
+          }
+        } catch (err) {
+          setUploadStatus("Server offline or network error.");
+        }
+      };
+
+      const handleQuery = async (e) => {
+        e.preventDefault();
+        if (!prompt) return;
+        setLoading(true);
+        setResult(null);
+
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt, top_k: 3 }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setResult(data);
+          } else {
+            alert(data.detail || "Query failed");
+          }
+        } catch (err) {
+          alert("Error querying DocuMind backend");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div class="max-w-6xl mx-auto px-6 py-12">
+          {/* Header */}
+          <div class="flex items-center justify-between border-b border-slate-800 pb-6 mb-8">
+            <div>
+              <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+                Enterprise DocuMind
+              </h1>
+              <p class="text-slate-400 text-sm mt-1">
+                Zero-Shot Multimodal RAG Engine with Grounded Source Citations
+              </p>
+            </div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              FastAPI Engine Online
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Upload Section */}
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl h-fit">
+              <h2 class="text-lg font-semibold text-slate-200 mb-3">1. Ingest Knowledge</h2>
+              <p class="text-xs text-slate-400 mb-4">
+                Upload technical PDFs. The engine extracts text and builds dense vector embeddings.
+              </p>
+              <form onSubmit={handleUpload} class="space-y-4">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  class="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer"
+                />
+                <button
+                  type="submit"
+                  class="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition"
+                >
+                  Upload & Vectorize
+                </button>
+              </form>
+              {uploadStatus && (
+                <p class="mt-4 text-xs font-mono text-indigo-400 bg-indigo-950/40 p-3 rounded-lg border border-indigo-900">
+                  {uploadStatus}
+                </p>
+              )}
+            </div>
+
+            {/* Query & Citations Section */}
+            <div class="md:col-span-2 space-y-6">
+              <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                <h2 class="text-lg font-semibold text-slate-200 mb-3">2. Semantic Search & Reasoning</h2>
+                <form onSubmit={handleQuery} class="space-y-4">
+                  <textarea
+                    rows="3"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Ask questions about your uploaded documents..."
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 text-slate-200"
+                  />
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs text-slate-500">Hybrid Dense Retrieval (k=3)</span>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      class="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+                    >
+                      {loading ? "Searching..." : "Execute Query"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Response Display */}
+              {result && (
+                <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+                  <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 class="text-sm font-semibold text-slate-300">Grounded Synthesis</h3>
+                    <span class="text-xs font-mono text-emerald-400 bg-emerald-950/40 px-2.5 py-0.5 rounded border border-emerald-900">
+                      {result.latency_ms} ms latency
+                    </span>
+                  </div>
+                  <p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                    {result.answer}
+                  </p>
+
+                  {/* Citations */}
+                  <div class="pt-4 border-t border-slate-800/80">
+                    <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                      Verified Document Citations
+                    </h4>
+                    <div class="space-y-2">
+                      {result.citations.map((c, i) => (
+                        <div key={i} class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
+                          <div class="flex justify-between text-indigo-400 font-semibold mb-1">
+                            <span>{c.document_name}</span>
+                            <span>Sim Score: {c.relevance_score}</span>
+                          </div>
+                          <p class="text-slate-400 line-clamp-2">{c.chunk_text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
