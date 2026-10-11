@@ -87,8 +87,6 @@ GET	/health	Live service health status & uptime check
 POST	/api/v1/upload	Multipart file upload, extraction & vector indexing
 POST	/api/v1/query	Grounded semantic question answering with citations
 
-👤 Author
-Deepa J
 
 LinkedIn: https://www.linkedin.com/in/deepa-j-38a6bb390
 
